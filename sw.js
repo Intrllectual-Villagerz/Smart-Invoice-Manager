@@ -33,3 +33,19 @@ return res||fetch(event.request)
 })
 )
 })
+
+let deferredPrompt
+
+window.addEventListener("beforeinstallprompt", e => {
+  e.preventDefault()
+  deferredPrompt = e
+  installBtn.style.display = "block"
+})
+
+installBtn.addEventListener("click", async () => {
+  if (deferredPrompt) {
+    deferredPrompt.prompt()
+    await deferredPrompt.userChoice
+    deferredPrompt = null
+  }
+})
