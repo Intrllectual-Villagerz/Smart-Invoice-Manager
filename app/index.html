@@ -163,8 +163,9 @@ font-size:12px
 
     <div id="create" class="page" style="display:none">
 
-         <div class="card">
-            <button onclick="toggleTheme()">Toggle Theme</button>
+        <div class="card">
+            Upload Logo
+            <input type="file" onchange="uploadLogo(event)">
         </div>
 
         <div class="card">
@@ -260,6 +261,10 @@ font-size:12px
 
     <div id="settings" class="page" style="display:none">
 
+         <div class="card">
+            <button onclick="toggleTheme()">Toggle Theme</button>
+        </div>
+
         <div class="card">
             <button id="installBtn" style="display:none">Install App</button>
         </div>
@@ -267,11 +272,6 @@ font-size:12px
         <!--<div class="card">
             <button onclick="downloadAPK()">Download Android App</button>
         </div>-->
-
-        <div class="card">
-            Upload Logo
-            <input type="file" onchange="uploadLogo(event)">
-        </div>
 
     </div>
 
