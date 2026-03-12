@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Invoice Manager V2.8</title>
+
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600&display=swap">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://www.paypal.com/sdk/js?client-id=BAAmBeGVQoex4pwq2tXIg7J-KJkivIFHHRw_enngMYnQqQZct3EmGPUX0ZFxnVFzu3VDvWDq_OHWAhd1ms&components=hosted-buttons&currency=USD"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+
+    <style>
+*{box-sizing:border-box}
+:root{
+--bg:#f4f7fb;--card:#fff;--primary:#4f46e5;--text:#111827;--border:#e5e7eb;--success:#10b981;--danger:#ef4444;
+}
+[data-theme="dark"]{
+--bg:#0f172a;--card:#1e293b;--text:#f1f5f9;--border:#334155;
+}
+body{margin:0;font-family:"Segoe UI";background:var(--bg);color:var(--text);}
+.container{max-width:600px;margin:auto;padding:20px;}
+.logo{font-size:28px;font-weight:700;background:linear-gradient(90deg,#4f46e5,#06b6d4,#10b981);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:15px;}
+nav button{flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;font-weight:600;}
+nav button.active{background:var(--primary);color:white;}
+.card{background:var(--card);padding:18px;border-radius:14px;border:1px solid var(--border);margin-bottom:15px;}
+input,select{width:100%;padding:10px;margin-top:6px;margin-bottom:10px;border-radius:8px;border:1px solid var(--border);}
+button{padding:10px;border:none;border-radius:10px;background:var(--primary);color:white;cursor:pointer;width:100%;}
+.remove-item{background:#ef4444;}
+.status-paid{background:var(--success);color:white;padding:3px 8px;border-radius:8px;font-size:12px;}
+.status-unpaid{background:var(--danger);color:white;padding:3px 8px;border-radius:8px;font-size:12px;}
+
+.stats-grid{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+gap:15px;
+margin-bottom:20px;
+}
+
+.stat-card{
+background:white;
+padding:20px;
+border-radius:10px;
+box-shadow:0 2px 8px rgba(0,0,0,0.08);
+text-align:center;
+}
+
+.stat-card h3{
+font-size:14px;
+color:#6b7280;
+margin-bottom:8px;
+}
+
+.stat-card p{
+font-size:24px;
+font-weight:bold;
+color:#111827;
+}
+
+.dark .stat-card{
+background:#1f2937;
+color:white;
+}
+
+button.delete-btn{
+background:#ef4444;
+color:white;
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+    <h2 class="logo">Smart Invoice Manager V2.8</h2>
+
+    <nav>
+        <button onclick="showPage('dashboard')" id="nav-dashboard">Dashboard</button>
+        <button onclick="showPage('create')" id="nav-create">Create</button>
+        <button onclick="showPage('clients')" id="nav-clients">Clients</button>
+        <button onclick="showPage('history')" id="nav-history">Invoices</button>
+        <button onclick="showPage('store')" id="nav-store">Store</button>
+        <button onclick="showPage('settings')" id="nav-settings">Settings</button>
+    </nav>
+
+    <!-- DASHBOARD -->
+    <div id="dashboard" class="page">
+        <div class="card">
+            <h3>Analytics</h3>
+            Revenue: R<span id="revenue">0</span><br>
+            Pending: R<span id="pending">0</span><br>
+            Invoices: <span id="invcount">0</span><br>
+            Clients: <span id="clientcount">0</span>
+        </div>
+
+        <div class="card">
+            <h3>Plan</h3>
+            Current Plan: <b id="planName"></b><br>
+            Invoices Used: <span id="used"></span>
+        </div>
+        <div class="card">
+            <h3>Revenue Analytics</h3>
+            <canvas id="revenueChart"></canvas>
+        </div>
+
+        <div class="card">
+            <h3>Payment Status</h3>
+            <canvas id="statusChart"></canvas>
+        </div>
+
+        <div class="card">
+            <h3>Top Clients</h3>
+            <canvas id="clientsChart"></canvas>
+        </div>
+
+        <div class="stats-grid">
+
+            <div class="stat-card">
+                <h3>Total Revenue</h3>
+                <p id="statRevenue">R0</p>
+            </div>
+
+            <div class="stat-card">
+                <h3>Total Invoices</h3>
+                <p id="statInvoices">0</p>
+            </div>
+
+            <div class="stat-card">
+                <h3>Pending Payments</h3>
+                <p id="statPending">R0</p>
+            </div>
+
+            <div class="stat-card">
+                <h3>Total Clients</h3>
+                <p id="statClients">0</p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- CREATE -->
+    <div id="create" class="page" style="display:none">
+        <div class="card">
+            Upload Logo<input type="file" onchange="uploadLogo(event)">
+        </div>
+        <div class="card">
+            <h3>Add a Client</h3>
+            <select id="clientSelect"></select>
+            <input id="clientName" placeholder="Client name">
+            <input id="clientEmail" placeholder="Client email">
+            <input type="date" id="dueDate">
+            <input id="payMethod" placeholder="Payment method or bank details">
+            <button onclick="saveClient()">Save Client</button>
+        </div>
+        <div class="card">
+            <h3>Payment Details</h3>
+
+            <input id="bankName" placeholder="Bank Name">
+            <input id="accountName" placeholder="Account Holder">
+            <input id="accountNumber" placeholder="Account Number">
+            <input id="paymentReference" placeholder="Payment Reference">
+
+            <button onclick="generatePaymentQR()">Generate Payment QR</button>
+
+            <br><br>
+            <canvas id="paymentQR"></canvas>
+
+        </div>
+        <div class="card">
+            <h3>Items</h3>
+            <table id="items"></table>
+            <button onclick="addItem()">Add Item</button>
+        </div>
+        <div class="card">
+            Subtotal R<span id="subtotal">0</span><br>
+            VAT R<span id="vat">0</span><br>
+            Total R<span id="total">0</span>
+        </div>
+        <div class="card">
+            <select id="method"><option>Cash</option><option>EFT</option><option>Card</option></select>
+            <select id="status"><option>Unpaid</option><option>Paid</option></select>
+            <button onclick="createInvoice()">Generate Invoice</button>
+            <button onclick="sendWhatsApp()">Send WhatsApp</button>
+            <button onclick="sendEmail()">Send Email</button>
+        </div>
+    </div>
+
+    <!-- CLIENTS -->
+    <div id="clients" class="page" style="display:none">
+        <div class="card" id="clientList"></div>
+    </div>
+
+    <!-- HISTORY -->
+    <div id="history" class="page" style="display:none">
+        <div class="card">
+            <input placeholder="Search invoice" oninput="searchInvoices(this.value)">
+        </div>
+        <div class="card" id="invoiceHistory"></div>
+    </div>
+
+    <!-- STORE -->
+    <div id="store" class="page" style="display:none">
+        <div class="card"><h3>Standard Pack</h3><div id="paypal-container-STD"></div></div>
+        <div class="card"><h3>Gold Pack</h3><div id="paypal-container-GOLD"></div></div>
+        <div class="card"><h3>Platinum Pack</h3><div id="paypal-container-PLAT"></div></div>
+        <div class="card"><h3>Diamond Pack</h3><div id="paypal-container-DIAM"></div></div>
+        <div class="card"><h3>Elite Pack</h3><div id="paypal-container-ELITE"></div></div>
+        <div class="card"><h3>Unlimited Pack</h3><div id="paypal-container-UNLIM"></div></div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="settings" class="page" style="display:none">
+        <div class="card">
+            <button onclick="toggleTheme()">Toggle Theme</button>
+        </div>
+        <div class="card">
+            <button onclick="backupEmail()">Backup Now (PDF & JSON)</button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+/* ---------- PACKS ---------- */
+const PACKS={free:5,standard:50,gold:100,platinum:300,diamond:400,elite:500,unlimited:Infinity};
+let plan=localStorage.getItem("plan")||"free";
+let invoices=JSON.parse(localStorage.getItem("invoices"))||[];
+let clients=JSON.parse(localStorage.getItem("clients"))||[];
+let logoData=localStorage.getItem("logo")||"";
+
+/* ---------- NAV ---------- */
+function showPage(id){
+  document.querySelectorAll(".page").forEach(p=>p.style.display="none");
+  document.getElementById(id).style.display="block";
+  document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
+  document.getElementById("nav-"+id).classList.add("active");
+}
+
+/* ---------- THEME ---------- */
+function toggleTheme(){
+  let t=document.documentElement.getAttribute("data-theme");
+  document.documentElement.setAttribute("data-theme",t==="dark"?"light":"dark");
+}
+
+/* ---------- ITEMS ---------- */
+function addItem(){
+  let table=document.getElementById("items");
+  let row=table.insertRow();
+  row.innerHTML=`<td><input placeholder="Description"></td>
+  <td><input type="number" value="1"></td>
+  <td><input type="number" value="0"></td>
+  <td><button class="remove-item" onclick="removeItem(this)">Remove</button></td>`;
+  row.querySelectorAll("input").forEach(i=>i.addEventListener("input",calcTotals));
+}
+function removeItem(btn){btn.closest("tr").remove();calcTotals();}
+
+/* ---------- TOTALS ---------- */
+const subtotalEl=document.getElementById("subtotal");
+const vatEl=document.getElementById("vat");
+const totalEl=document.getElementById("total");
+function calcTotals(){
+  let rows=document.querySelectorAll("#items tr");
+  let subtotal=0;
+  rows.forEach(r=>{
+    let qty=Number(r.cells[1].children[0].value);
+    let price=Number(r.cells[2].children[0].value);
+    subtotal+=qty*price;
+  });
+  let vat=subtotal*0.15;
+  let total=subtotal+vat;
+  subtotalEl.textContent=subtotal.toFixed(2);
+  vatEl.textContent=vat.toFixed(2);
+  totalEl.textContent=total.toFixed(2);
+  return {total};
+}
+
+/* ---------- INVOICE ---------- */
+function nextInvoiceNumber(){return "INV"+String(invoices.length+1).padStart(4,"0");}
+function createInvoice(){
+  if(invoices.length>=PACKS[plan]){alert("Invoice limit reached."); return;}
+  let totals=calcTotals();
+  let items=[];
+  document.querySelectorAll("#items tr").forEach(r=>{items.push({desc:r.cells[0].children[0].value,qty:r.cells[1].children[0].value,price:r.cells[2].children[0].value});});
+  let inv={
+    number:nextInvoiceNumber(),
+    client:document.getElementById("clientName").value,
+    email:document.getElementById("clientEmail").value,
+    method:document.getElementById("method").value,
+    status:document.getElementById("status").value,
+    payDetails:document.getElementById("payMethod").value,
+    items:items,
+    total:totals.total
+  };
+  invoices.push(inv);
+  localStorage.setItem("invoices",JSON.stringify(invoices));
+  renderInvoices();
+  updateAnalytics();
+  generatePDF(inv);
+  document.getElementById("items").innerHTML="";
+  addItem();
+}
+
+/* ---------- PDF ---------- */
+function generatePDF(inv){
+  const {jsPDF}=window.jspdf;
+  let doc=new jsPDF();
+  if(logoData){doc.addImage(logoData,'PNG',10,10,50,20);}
+  doc.text("Invoice "+inv.number,20,40);
+  doc.text("Client: "+inv.client,20,50);
+  let y=70;
+  inv.items.forEach(i=>{
+    doc.text(`${i.desc} x${i.qty} R${i.price}`,20,y);
+    y+=10;
+  });
+  doc.text("Total: R"+inv.total,20,y+10);
+  if(inv.payDetails){
+    doc.text("Payment Details: "+inv.payDetails,20,y+20);
+  }
+  if(paymentQRImage){
+doc.addImage(paymentQRImage,"PNG",150,40,40,40);
+doc.text("Scan to Pay",150,35);
+}
+  // QR Code
+  if(inv.payDetails){
+    let qr=new QRious({value:inv.payDetails,size:100});
+    doc.addImage(qr.toDataURL(),'PNG',150,20,40,40);
+  }
+  doc.save(inv.number+".pdf");
+}
+
+/* ---------- CLIENTS ---------- */
+function saveClient(){
+  let name=document.getElementById("clientName").value;
+  let email=document.getElementById("clientEmail").value;
+  let pay=document.getElementById("payMethod").value;
+  clients.push({name:name,email:email,pay:pay});
+  localStorage.setItem("clients",JSON.stringify(clients));
+  renderClients();
+  renderClientSelect();
+}
+function removeClient(idx){clients.splice(idx,1);localStorage.setItem("clients",JSON.stringify(clients));renderClients();renderClientSelect();}
+function renderClients(){
+  let box=document.getElementById("clientList");
+  box.innerHTML="<h3>Clients</h3>";
+  clients.forEach((c,i)=>{
+    box.innerHTML+=`${c.name} - ${c.email} - ${c.pay} <button onclick="removeClient(${i})">Remove</button><br>`;
+  });
+}
+function renderClientSelect(){
+  let select=document.getElementById("clientSelect");
+  select.innerHTML="";
+  clients.forEach(c=>{let opt=document.createElement("option");opt.text=c.name;select.add(opt);});
+}
+
+/* ---------- INVOICE HISTORY ---------- */
+function renderInvoices(list=invoices){
+
+let box=document.getElementById("invoiceHistory");
+box.innerHTML="<h3>Invoices</h3>";
+
+list.forEach((i,idx)=>{
+
+let statusClass = i.status==="Paid"
+? "status-paid"
+: "status-unpaid";
+
+let toggleText = i.status==="Paid"
+? "Mark Unpaid"
+: "Mark Paid";
+
+box.innerHTML += `
+<div style="margin-bottom:15px">
+
+<b>${i.number}</b><br>
+Client: ${i.client}<br>
+Total: R${i.total}<br>
+
+<span class="${statusClass}">${i.status}</span>
+
+<br><br>
+
+<button onclick="togglePaid(${idx})">
+${toggleText}
+</button>
+
+<button onclick="downloadInvoice(${idx})">
+Download
+</button>
+
+<button onclick="deleteInvoice(${idx})">
+Delete
+</button>
+
+
+</div>
+<hr>
+`;
+
+});
+}
+function togglePaid(index){
+
+if(invoices[index].status === "Paid"){
+invoices[index].status = "Unpaid";
+}else{
+invoices[index].status = "Paid";
+}
+
+localStorage.setItem("invoices", JSON.stringify(invoices));
+
+renderInvoices();
+updateAnalytics();
+}
+/* ---------- ANALYTICS ---------- */
+const revenueEl=document.getElementById("revenue");
+const pendingEl=document.getElementById("pending");
+const invcountEl=document.getElementById("invcount");
+const clientcountEl=document.getElementById("clientcount");
+const planNameEl=document.getElementById("planName");
+const usedEl=document.getElementById("used");
+function updateAnalytics(){
+  let revenue=0,pending=0;
+  invoices.forEach(i=>{if(i.status==="Paid") revenue+=Number(i.total); else pending+=Number(i.total);});
+  revenueEl.textContent=revenue.toFixed(2);
+  pendingEl.textContent=pending.toFixed(2);
+  invcountEl.textContent=invoices.length;
+  clientcountEl.textContent=clients.length;
+  planNameEl.textContent=plan;
+  usedEl.textContent=invoices.length+" / "+PACKS[plan];
+  updateCharts(revenue,pending);
+  updateLiveDashboard();
+}
+/* ---------- DELETE INVOICE ---------- */
+
+function deleteInvoice(index){
+
+/* CHECK PLAN */
+
+let currentPlan = localStorage.getItem("plan") || "free";
+
+if(currentPlan === "free"){
+alert("Deleting invoices is only available on paid plans.");
+return;
+}
+
+/* CONFIRM DELETE */
+
+let confirmDelete = confirm("Are you sure you want to delete this invoice?");
+
+if(!confirmDelete) return;
+
+/* DELETE */
+
+invoices.splice(index,1);
+
+localStorage.setItem("invoices", JSON.stringify(invoices));
+
+/* REFRESH UI */
+
+renderInvoices();
+updateAnalytics();
+updateLiveDashboard();
+updateCharts();
+
+}
+/* ---------- ADVANCED ANALYTICS ---------- */
+
+let revenueChart;
+let statusChart;
+let clientsChart;
+
+function updateCharts(){
+
+let months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+let monthlyRevenue=new Array(12).fill(0);
+let monthlyInvoices=new Array(12).fill(0);
+
+let paid=0;
+let unpaid=0;
+
+let clientTotals={};
+
+/* PROCESS DATA */
+
+invoices.forEach(inv=>{
+
+let date=new Date(inv.date||Date.now());
+let m=date.getMonth();
+
+monthlyInvoices[m]++;
+
+if(inv.status==="Paid"){
+monthlyRevenue[m]+=Number(inv.total);
+paid++;
+}else{
+unpaid++;
+}
+
+/* CLIENT REVENUE */
+
+if(!clientTotals[inv.client]){
+clientTotals[inv.client]=0;
+}
+
+clientTotals[inv.client]+=Number(inv.total);
+
+});
+
+/* ---------- REVENUE CHART ---------- */
+
+let ctx1=document.getElementById("revenueChart").getContext("2d");
+
+if(revenueChart) revenueChart.destroy();
+
+revenueChart=new Chart(ctx1,{
+
+type:"bar",
+
+data:{
+
+labels:months,
+
+datasets:[
+
+{
+label:"Revenue (R)",
+data:monthlyRevenue,
+backgroundColor:"#10b981",
+borderRadius:6
+},
+
+{
+label:"Invoices Created",
+data:monthlyInvoices,
+type:"line",
+borderColor:"#4f46e5",
+borderWidth:3,
+tension:0.4,
+fill:false
+}
+
+]
+
+},
+
+options:{
+responsive:true,
+plugins:{
+legend:{position:"top"}
+}
+}
+
+});
+
+/* ---------- STATUS PIE CHART ---------- */
+
+let ctx2=document.getElementById("statusChart").getContext("2d");
+
+if(statusChart) statusChart.destroy();
+
+statusChart=new Chart(ctx2,{
+
+type:"pie",
+
+data:{
+
+labels:["Paid","Unpaid"],
+
+datasets:[{
+
+data:[paid,unpaid],
+
+backgroundColor:[
+"#10b981",
+"#ef4444"
+]
+
+}]
+
+},
+
+options:{
+responsive:true
+}
+
+});
+
+/* ---------- TOP CLIENTS ---------- */
+
+let sortedClients=Object.entries(clientTotals)
+.sort((a,b)=>b[1]-a[1])
+.slice(0,5);
+
+let clientNames=sortedClients.map(c=>c[0]);
+let clientRevenue=sortedClients.map(c=>c[1]);
+
+let ctx3=document.getElementById("clientsChart").getContext("2d");
+
+if(clientsChart) clientsChart.destroy();
+
+clientsChart=new Chart(ctx3,{
+
+type:"bar",
+
+data:{
+
+labels:clientNames,
+
+datasets:[{
+
+label:"Revenue (R)",
+
+data:clientRevenue,
+
+backgroundColor:"#3b82f6",
+
+borderRadius:6
+
+}]
+
+},
+
+options:{
+responsive:true,
+indexAxis:"y"
+}
+
+});
+
+}
+
+/* ---------- WHATSAPP & EMAIL ---------- */
+function sendWhatsApp(){
+  let msg=`Invoice for ${document.getElementById("clientName").value}\nTotal R${totalEl.textContent}`;
+  window.open("https://wa.me/?text="+encodeURIComponent(msg));
+}
+function sendEmail(){
+  let invName=document.getElementById("clientName").value;
+  let email=document.getElementById("clientEmail").value;
+  let total=totalEl.textContent;
+  let body=`Invoice for ${invName}\nTotal R${total}`;
+  window.open(`mailto:${email}?subject=Invoice ${nextInvoiceNumber()}&body=${encodeURIComponent(body)}`);
+}
+
+/* ---------- LOGO ---------- */
+function uploadLogo(e){
+  let reader=new FileReader();
+  reader.onload=function(){logoData=reader.result;localStorage.setItem("logo",logoData);}
+  reader.readAsDataURL(e.target.files[0]);
+}
+
+/* ---------- BACKUP ---------- */
+function backupEmail(){
+  // JSON backup
+  let blob=new Blob([JSON.stringify({clients,invoices})],{type:"application/json"});
+  let url=URL.createObjectURL(blob);
+  let link=document.createElement("a");link.href=url;link.download="backup.json";link.click();URL.revokeObjectURL(url);
+  // PDF backup
+  const {jsPDF}=window.jspdf;
+  let doc=new jsPDF();let y=20;
+  doc.text("Clients & Invoices Backup",20,y);y+=10;
+  clients.forEach(c=>{doc.text(`Client: ${c.name}, Email: ${c.email}, Pay: ${c.pay}`,20,y);y+=10;});
+  invoices.forEach(i=>{doc.text(`Invoice: ${i.number}, Client: ${i.client}, Total: R${i.total}, Status: ${i.status}`,20,y);y+=10;});
+  doc.save("backup.pdf");
+}
+
+/* ---------- PAYPAL ---------- */
+paypal.HostedButtons({hostedButtonId:"3E83DZHBFHNEW",onApprove:()=>{plan="standard";localStorage.setItem("plan","standard");updateAnalytics();}}).render("#paypal-container-STD");
+paypal.HostedButtons({hostedButtonId:"JFEV85WTGMCKC",onApprove:()=>{plan="gold";localStorage.setItem("plan","gold");updateAnalytics();}}).render("#paypal-container-GOLD");
+paypal.HostedButtons({hostedButtonId:"BUMT7UX62DDCE",onApprove:()=>{plan="platinum";localStorage.setItem("plan","platinum");updateAnalytics();}}).render("#paypal-container-PLAT");
+paypal.HostedButtons({hostedButtonId:"KV3DLLYYCVRFC",onApprove:()=>{plan="diamond";localStorage.setItem("plan","diamond");updateAnalytics();}}).render("#paypal-container-DIAM");
+paypal.HostedButtons({hostedButtonId:"9U7PBQJ673BSW",onApprove:()=>{plan="elite";localStorage.setItem("plan","elite");updateAnalytics();}}).render("#paypal-container-ELITE");
+paypal.HostedButtons({hostedButtonId:"A4VGJ78R77ZVQ",onApprove:()=>{plan="unlimited";localStorage.setItem("plan","unlimited");updateAnalytics();}}).render("#paypal-container-UNLIM");
+
+/* ---------- INIT ---------- */
+renderInvoices();
+renderClients();
+renderClientSelect();
+updateAnalytics();
+addItem();
+showPage("dashboard");
+
+/* ---------- SERVICE WORKER ---------- */
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js');}
+
+/*------------------------------------*/
+let paymentQRImage = "";
+
+function generatePaymentQR(){
+
+let bank = document.getElementById("bankName").value;
+let name = document.getElementById("accountName").value;
+let account = document.getElementById("accountNumber").value;
+let ref = document.getElementById("paymentReference").value;
+
+let paymentData =
+`BANK:${bank}
+NAME:${name}
+ACC:${account}
+REF:${ref}`;
+
+let qr = new QRious({
+element: document.getElementById("paymentQR"),
+value: paymentData,
+size: 200
+});
+
+paymentQRImage = qr.toDataURL();
+}
+/*------------------------------------*/
+/* ---------- LIVE DASHBOARD ---------- */
+
+function updateLiveDashboard(){
+
+let revenue=0;
+let pending=0;
+
+invoices.forEach(inv=>{
+
+if(inv.status==="Paid"){
+revenue+=Number(inv.total);
+}else{
+pending+=Number(inv.total);
+}
+
+});
+
+/* UPDATE UI */
+
+document.getElementById("statRevenue").innerText="R"+revenue.toFixed(2);
+document.getElementById("statInvoices").innerText=invoices.length;
+document.getElementById("statPending").innerText="R"+pending.toFixed(2);
+document.getElementById("statClients").innerText=clients.length;
+
+}
+/*------------------------------------*/
+
+</script>
+</body>
+</html>
